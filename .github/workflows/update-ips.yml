@@ -1,0 +1,64 @@
+# .github/workflows/update-ips.yml
+
+name: Update Cloudflare IP Lists
+
+# 控制工作流触发的条件
+on:
+  # 允许你从 Actions 标签页手动运行此工作流
+  workflow_dispatch:
+  # 设置定时任务，每 30 分钟运行一次
+  schedule:
+    - cron: '*/30 * * * *'
+
+jobs:
+  update-ips:
+    # 使用最新的 Ubuntu 运行环境
+    runs-on: ubuntu-latest
+
+    steps:
+      # 第一步：检出你的仓库代码
+      # 这样工作流才可以访问你的仓库并提交文件
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 第二步：获取 IP 数据并分割成三个文件
+      - name: Fetch and split IP list
+        run: |
+          # 从指定的 URL 下载 IP 列表
+          curl -s https://raw.githubusercontent.com/gdydg/cfipcaiji/refs/heads/main/ip.txt -o ip_source.txt
+          
+          # 检查下载的文件是否为空
+          if [ ! -s ip_source.txt ]; then
+            echo "下载的 IP 文件为空，终止任务。"
+            exit 1
+          fi
+          
+          # 分割文件
+          # 提取前 5 行到 cmcc.txt (移动)
+          head -n 5 ip_source.txt > cmcc.txt
+          # 提取第 6 到 10 行到 cucc.txt (联通)
+          sed -n '6,10p' ip_source.txt > cucc.txt
+          # 提取最后 5 行到 ctcc.txt (电信)
+          tail -n 5 ip_source.txt > ctcc.txt
+          
+          echo "IP 文件分割完成。"
+
+      # 第三步：提交并推送文件到仓库
+      - name: Commit and push files
+        run: |
+          # 配置 Git 用户信息
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 将新生成的文件添加到暂存区
+          git add cmcc.txt cucc.txt ctcc.txt
+          
+          # 检查是否有文件变动，只有在文件内容改变时才进行提交
+          # "git diff --staged --quiet" 如果没有变动，会返回 0，加上 "!" 就变成了 true
+          if ! git diff --staged --quiet; then
+            git commit -m "Update IP lists"
+            git push
+            echo "文件已更新并推送。"
+          else
+            echo "文件内容无变化，无需推送。"
+          fi
