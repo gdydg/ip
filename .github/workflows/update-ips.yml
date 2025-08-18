@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   # 设置定时任务，每 30 分钟运行一次
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
 
 jobs:
   update-ips:
